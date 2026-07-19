@@ -439,21 +439,21 @@ module.exports = {
   },
 
   /**
-   * 获取课程进度
+   * 获取课程进度 - 字段名对齐数据库
    */
   async getCourseProgress(userId) {
     const [rows] = await pool.query(`
-      SELECT id, course_id, course_name, icon, progress, status,
-             completed_date, total_chapters, completed_chapters
+      SELECT id, course_id, progress_percent, status,
+             completed_at, total_chapters, completed_chapters
       FROM db_user_course_progress
       WHERE user_id = ?
-      ORDER BY FIELD(status, "active", "not_started", "completed"), progress DESC
+      ORDER BY FIELD(status, 1, 0, 2), progress_percent DESC
     `, [userId]);
     return rows;
   },
 
   /**
-   * 更新课程进度
+   * 更新课程进度 - 字段名对齐数据库
    */
   async updateCourseProgress(userId, courseId, data) {
     const [existing] = await pool.query(
@@ -466,24 +466,16 @@ module.exports = {
       const params = [];
       
       if (data.progress !== undefined) {
-        updates.push('progress = ?');
+        updates.push('progress_percent = ?');
         params.push(data.progress);
         if (data.progress >= 100) {
-          updates.push('status = "completed"');
-          updates.push('completed_date = CURDATE()');
+          updates.push('status = 2');
+          updates.push('completed_at = NOW()');
         }
       }
       if (data.status !== undefined) {
         updates.push('status = ?');
         params.push(data.status);
-      }
-      if (data.course_name !== undefined) {
-        updates.push('course_name = ?');
-        params.push(data.course_name);
-      }
-      if (data.icon !== undefined) {
-        updates.push('icon = ?');
-        params.push(data.icon);
       }
       if (data.completed_chapters !== undefined) {
         updates.push('completed_chapters = ?');
@@ -505,15 +497,13 @@ module.exports = {
     } else {
       await pool.query(`
         INSERT INTO db_user_course_progress (
-          user_id, course_id, course_name, icon, progress, status, total_chapters, completed_chapters
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          user_id, course_id, progress_percent, status, total_chapters, completed_chapters
+        ) VALUES (?, ?, ?, ?, ?, ?)
       `, [
         userId,
         courseId,
-        data.course_name || '课程',
-        data.icon || '📚',
         data.progress || 0,
-        data.status || 'active',
+        data.status || 0,
         data.total_chapters || 0,
         data.completed_chapters || 0
       ]);
