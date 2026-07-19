@@ -136,3 +136,17 @@ router.use('/community', communityRouter);
 
 console.log('✅ 所有路由已注册');
 module.exports = router;
+// ========== 🔧 调试端点 ==========
+router.get('/debug/env', (req, res) => {
+  res.json({
+    code: 200,
+    data: {
+      DB_HOST: process.env.DB_HOST || '(未设置)',
+      DB_PORT: process.env.DB_PORT || '(未设置)',
+      DB_USER: process.env.DB_USER || '(未设置)',
+      DB_NAME: process.env.DB_NAME || '(未设置)',
+      DB_PASSWORD_SET: process.env.DB_PASSWORD ? '已设置' : '(未设置)',
+      NODE_ENV: process.env.NODE_ENV || '(未设置)'
+    }
+  });
+});
