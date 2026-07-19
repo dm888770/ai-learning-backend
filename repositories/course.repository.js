@@ -1,4 +1,4 @@
-// repositories/course.repository.js - 完整修复版（支持错题分类）
+// repositories/course.repository.js - 完整修复版（SQL字段名与数据库对齐）
 
 const pool = require('../config/db');
 
@@ -12,9 +12,9 @@ module.exports = {
     const [rows] = await pool.query(`
       SELECT c.*, cat.name as category_name
       FROM db_course c
-      LEFT JOIN db_course_category cat ON c.category_id = cat.id
+      LEFT JOIN db_course_category cat ON c.type_id = cat.id
       WHERE c.status = 1
-      ORDER BY c.sort_order ASC, c.create_time DESC
+      ORDER BY c.create_time DESC
     `);
     return rows;
   },
@@ -26,9 +26,9 @@ module.exports = {
     const [rows] = await pool.query(`
       SELECT c.*, cat.name as category_name
       FROM db_course c
-      LEFT JOIN db_course_category cat ON c.category_id = cat.id
-      WHERE c.category_id = ? AND c.status = 1
-      ORDER BY c.sort_order ASC
+      LEFT JOIN db_course_category cat ON c.type_id = cat.id
+      WHERE c.type_id = ? AND c.status = 1
+      ORDER BY c.create_time DESC
     `, [categoryId]);
     return rows;
   },
@@ -40,9 +40,9 @@ module.exports = {
     const [rows] = await pool.query(`
       SELECT c.*, cat.name as category_name
       FROM db_course c
-      LEFT JOIN db_course_category cat ON c.category_id = cat.id
+      LEFT JOIN db_course_category cat ON c.type_id = cat.id
       WHERE c.type = ? AND c.status = 1
-      ORDER BY c.sort_order ASC
+      ORDER BY c.create_time DESC
     `, [type]);
     return rows;
   },
@@ -54,7 +54,7 @@ module.exports = {
     const [rows] = await pool.query(`
       SELECT c.*, cat.name as category_name, cat.icon as category_icon
       FROM db_course c
-      LEFT JOIN db_course_category cat ON c.category_id = cat.id
+      LEFT JOIN db_course_category cat ON c.type_id = cat.id
       WHERE c.id = ? AND c.status = 1
     `, [id]);
     return rows[0] || null;
@@ -67,7 +67,7 @@ module.exports = {
     const [rows] = await pool.query(`
       SELECT c.*, cat.name as category_name
       FROM db_course c
-      LEFT JOIN db_course_category cat ON c.category_id = cat.id
+      LEFT JOIN db_course_category cat ON c.type_id = cat.id
       WHERE c.is_recommended = 1 AND c.status = 1
       ORDER BY c.view_count DESC, c.rating DESC
       LIMIT ?
@@ -82,7 +82,7 @@ module.exports = {
     const [rows] = await pool.query(`
       SELECT c.*, cat.name as category_name
       FROM db_course c
-      LEFT JOIN db_course_category cat ON c.category_id = cat.id
+      LEFT JOIN db_course_category cat ON c.type_id = cat.id
       WHERE c.hot = 1 AND c.status = 1
       ORDER BY c.view_count DESC, c.rating DESC
       LIMIT ?
@@ -97,9 +97,9 @@ module.exports = {
     const [rows] = await pool.query(`
       SELECT c.*, cat.name as category_name
       FROM db_course c
-      LEFT JOIN db_course_category cat ON c.category_id = cat.id
+      LEFT JOIN db_course_category cat ON c.type_id = cat.id
       WHERE c.status = 1
-        AND (c.title LIKE ? OR c.teacher LIKE ? OR c.school LIKE ? OR c.tags LIKE ?)
+        AND (c.course_name LIKE ? OR c.teacher LIKE ? OR c.school LIKE ? OR c.tags LIKE ?)
       ORDER BY c.view_count DESC
     `, [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`]);
     return rows;
@@ -143,7 +143,7 @@ module.exports = {
    */
   async getUserAllProgress(userId) {
     const [rows] = await pool.query(`
-      SELECT p.*, c.title, c.teacher, c.cover_url
+      SELECT p.*, c.course_name, c.teacher, c.cover
       FROM db_user_course_progress p
       JOIN db_course c ON p.course_id = c.id
       WHERE p.user_id = ?
@@ -157,12 +157,12 @@ module.exports = {
    */
   async updateProgress(userId, courseId, progress) {
     await pool.query(`
-      INSERT INTO db_user_course_progress (user_id, course_id, progress, status, last_study_time)
+      INSERT INTO db_user_course_progress (user_id, course_id, progress_percent, status, last_active_at)
       VALUES (?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
-        progress = ?,
+        progress_percent = ?,
         status = CASE WHEN ? >= 100 THEN 2 ELSE 1 END,
-        last_study_time = NOW()
+        last_active_at = NOW()
     `, [userId, courseId, progress, progress >= 100 ? 2 : 1, progress, progress]);
   },
 
@@ -173,7 +173,7 @@ module.exports = {
    */
   async getUserFavorites(userId) {
     const [rows] = await pool.query(`
-      SELECT c.*, p.is_favorite, p.progress
+      SELECT c.*, p.is_favorite, p.progress_percent
       FROM db_course c
       JOIN db_user_course_progress p ON c.id = p.course_id
       WHERE p.user_id = ? AND p.is_favorite = 1 AND c.status = 1
