@@ -15,7 +15,9 @@ function errorHandler(err, req, res, next) {
   if (err.statusCode) {
     return fail(res, err.statusCode, err.message);
   }
-  return fail(res, 500, err.message || '服务器内部错误');
+  const errInfo = err.message || err.code || (err.errors ? err.errors.map(e => e.message).join("; ") : "无错误信息");
+  console.error("💥 详细错误:", JSON.stringify({message: err.message, code: err.code, errors: err.errors?.map(e => ({message: e.message, code: e.code, errno: e.errno}))}));
+  return fail(res, 500, errInfo || "服务器内部错误");
 }
 
 /**
